@@ -1,0 +1,12 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!--
+    Base application theme for day mode.
+    This theme is a starting point for Jetpack Compose, which will handle the UI.
+    The parent theme "android:Theme.Material.Light.NoActionBar" is used to avoid
+    conflicts with the Material 3 components used in Compose.
+    -->
+    <style name="Theme.ChainReaction" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Status bar color can be set here as a fallback or for legacy screens -->
+        <item name="android:statusBarColor">@color/purple_700</item>
+    </style>
+</resources>

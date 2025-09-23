@@ -1,0 +1,13 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!--
+    Base application theme for night mode.
+    This theme is a starting point for Jetpack Compose, which will handle the UI.
+    The parent theme "android:Theme.Material.NoActionBar" is used to avoid
+    conflicts with the Material 3 components used in Compose.
+    -->
+    <style name="Theme.ChainReaction" parent="android:Theme.Material.NoActionBar">
+        <!-- Status bar color can be set here as a fallback or for legacy screens -->
+        <item name="android:statusBarColor">@color/purple_700</item>
+    </style>
+</resources>
+
