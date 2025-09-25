@@ -60,50 +60,25 @@ class GameViewModel : ViewModel() {
     private val _isAnimating = MutableStateFlow(false)
     val isAnimating: StateFlow<Boolean> = _isAnimating.asStateFlow()
 
-    private val _showGameSetupDialog = MutableStateFlow(true)
-    val showGameSetupDialog = _showGameSetupDialog.asStateFlow()
-
     var playerCount = 2
         private set
     private val rows = 12
     private val cols = 6
+    private var isInitialized = false
 
+    fun initializeGame(playerCount: Int, botType: BotType?) {
+        if (isInitialized) return // Prevent re-initialization
 
-    fun startGame() {
-        _showGameSetupDialog.value = true
-    }
+        this.playerCount = playerCount
+        val botTypeId = botType?.id ?: 0 // Use 0 for multiplayer
 
-    fun initializeMultiplayerGame(selectedPlayerCount: Int) {
-        this.playerCount = selectedPlayerCount
-        val botType = 0
-
-        viewModelScope.launch {
-            withContext(Dispatchers.Default) {
-                nativeInitGame(playerCount, botType, rows, cols)
+        viewModelScope.launch(Dispatchers.Default) {
+            nativeInitGame(playerCount, botTypeId, rows, cols)
+            withContext(Dispatchers.Main) {
+                updateGridState()
             }
-            _currentPlayer.value = 0
-            _winner.value = -1
-            _isAnimating.value = false
-            _animationEvents.value = emptyList()
-            updateGridState()
-            _showGameSetupDialog.value = false
         }
-    }
-
-    fun initializeBotGame(botType: BotType) {
-        this.playerCount = 2
-
-        viewModelScope.launch {
-            withContext(Dispatchers.Default) {
-                nativeInitGame(playerCount, botType.id, rows, cols)
-            }
-            _currentPlayer.value = 0
-            _winner.value = -1
-            _isAnimating.value = false
-            _animationEvents.value = emptyList()
-            updateGridState()
-            _showGameSetupDialog.value = false
-        }
+        isInitialized = true
     }
 
 

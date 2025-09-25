@@ -1,6 +1,7 @@
 package com.example.chainreaction
 
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -18,7 +19,6 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlin.math.cos
@@ -26,19 +26,52 @@ import kotlin.math.sin
 
 
 @Composable
-fun GameScreen(gameViewModel: GameViewModel = viewModel()) {
+fun GameScreen(
+    gameViewModel: GameViewModel,
+    onNavigateBack: () -> Unit
+) {
     val gridState by gameViewModel.gridState.collectAsState()
     val currentPlayer by gameViewModel.currentPlayer.collectAsState()
     val winner by gameViewModel.winner.collectAsState()
     val animationEvents by gameViewModel.animationEvents.collectAsState()
-    val showGameSetupDialog by gameViewModel.showGameSetupDialog.collectAsState()
-
     val playerColors = listOf(Color.Red, Color.Blue, Color.Green, Color.Yellow, Color.Cyan, Color.Magenta)
+
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
+
+    // 1. BackHandler to show the exit dialog when the game is in progress
+    BackHandler(enabled = winner == -1) {
+        showExitConfirmDialog = true
+    }
+
+    // New exit confirmation dialog
+    if (showExitConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitConfirmDialog = false },
+            title = { Text("Exit Game?") },
+            text = { Text("Are you sure you want to quit the current game?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showExitConfirmDialog = false
+                        onNavigateBack() // Call the lambda to navigate back
+                    }
+                ) {
+                    Text("Yes, Exit")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showExitConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
+        // Main game UI
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -65,6 +98,7 @@ fun GameScreen(gameViewModel: GameViewModel = viewModel()) {
             )
         }
 
+        // Winner dialog overlay
         if (winner != -1) {
             Box(
                 modifier = Modifier
@@ -87,134 +121,18 @@ fun GameScreen(gameViewModel: GameViewModel = viewModel()) {
                             color = playerColors.getOrElse(winner) { Color.Black }
                         )
                         Spacer(Modifier.height(24.dp))
-                        Button(onClick = { gameViewModel.startGame() }) {
+                        // 2. "Play Again" now correctly navigates back to the setup screen
+                        Button(onClick = onNavigateBack) {
                             Text("Play Again")
                         }
                     }
                 }
             }
         }
-
-        if (showGameSetupDialog) {
-            GameSetupDialog(
-                onConfirmMultiplayer = { playerCount ->
-                    gameViewModel.initializeMultiplayerGame(playerCount)
-                },
-                onConfirmBotGame = { botType ->
-                    gameViewModel.initializeBotGame(botType)
-                }
-            )
-        }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun GameSetupDialog(
-    onConfirmMultiplayer: (playerCount: Int) -> Unit,
-    onConfirmBotGame: (botType: BotType) -> Unit
-) {
-    var selectedMode by remember { mutableStateOf(GameMode.VERSUS_BOT) }
-    var playerCountExpanded by remember { mutableStateOf(false) }
-    val playerOptions = listOf(2, 3, 4, 5)
-    var selectedPlayerCount by remember { mutableStateOf(playerOptions[0]) }
-    var botTypeExpanded by remember { mutableStateOf(false) }
-    val botOptions = BotType.values().toList()
-    var selectedBotType by remember { mutableStateOf(botOptions[0]) }
 
-    AlertDialog(
-        onDismissRequest = { /* Force a selection */ },
-        title = { Text(text = "New Game Setup") },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text("Select Game Mode", style = MaterialTheme.typography.titleMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = selectedMode == GameMode.VERSUS_BOT,
-                        onClick = { selectedMode = GameMode.VERSUS_BOT },
-                        label = { Text("Versus Bot") }
-                    )
-                    FilterChip(
-                        selected = selectedMode == GameMode.MULTIPLAYER,
-                        onClick = { selectedMode = GameMode.MULTIPLAYER },
-                        label = { Text("Multiplayer") }
-                    )
-                }
-                Spacer(Modifier.height(16.dp))
-
-                when (selectedMode) {
-                    GameMode.VERSUS_BOT -> {
-                        Text("Select Bot Difficulty", style = MaterialTheme.typography.titleMedium)
-                        ExposedDropdownMenuBox(
-                            expanded = botTypeExpanded,
-                            onExpandedChange = { botTypeExpanded = !botTypeExpanded }
-                        ) {
-                            TextField(
-                                value = selectedBotType.displayName,
-                                onValueChange = {},
-                                readOnly = true,
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = botTypeExpanded) },
-                                modifier = Modifier.menuAnchor()
-                            )
-                            ExposedDropdownMenu(expanded = botTypeExpanded, onDismissRequest = { botTypeExpanded = false }) {
-                                botOptions.forEach { bot ->
-                                    DropdownMenuItem(
-                                        text = { Text(bot.displayName) },
-                                        onClick = {
-                                            selectedBotType = bot
-                                            botTypeExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    GameMode.MULTIPLAYER -> {
-                        Text("Select Number of Players", style = MaterialTheme.typography.titleMedium)
-                        ExposedDropdownMenuBox(
-                            expanded = playerCountExpanded,
-                            onExpandedChange = { playerCountExpanded = !playerCountExpanded }
-                        ) {
-                            TextField(
-                                value = "$selectedPlayerCount Players",
-                                onValueChange = {},
-                                readOnly = true,
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = playerCountExpanded) },
-                                modifier = Modifier.menuAnchor()
-                            )
-                            ExposedDropdownMenu(expanded = playerCountExpanded, onDismissRequest = { playerCountExpanded = false }) {
-                                playerOptions.forEach { count ->
-                                    DropdownMenuItem(
-                                        text = { Text("$count Players") },
-                                        onClick = {
-                                            selectedPlayerCount = count
-                                            playerCountExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                if (selectedMode == GameMode.VERSUS_BOT) {
-                    onConfirmBotGame(selectedBotType)
-                } else {
-                    onConfirmMultiplayer(selectedPlayerCount)
-                }
-            }) {
-                Text("Start Game")
-            }
-        }
-    )
-}
 
 
 @Composable
@@ -335,8 +253,7 @@ fun GameBoard(
     }
 }
 
-// ⭐ FIX 4: This function is now a private helper. Its signature is updated to take the
-// `topLeft` offset so it knows where to draw inside the main Canvas.
+
 private fun DrawScope.drawCellOrbs(
     cell: CellState,
     playerColor: Color,
